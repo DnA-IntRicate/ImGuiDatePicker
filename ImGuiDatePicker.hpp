@@ -1,11 +1,17 @@
 #pragma once
-#include <Mango/Core/Core.hpp>  // TODO: Remove these includes
-#include <Mango/Data/Date.hpp>
 #include <imgui.h>
+#include <string>
 
+
+#ifndef IMGUI_DATEPICKER_YEAR_MIN
+    #define IMGUI_DATEPICKER_YEAR_MIN 1900
+#endif // !IMGUI_DATEPICKER_YEAR_MIN
+
+#ifndef IMGUI_DATEPICKER_YEAR_MAX
+    #define IMGUI_DATEPICKER_YEAR_MAX 3000
+#endif // !IMGUI_DATEPICKER_YEAR_MAX
 
 namespace ImGui
 {
-    // TODO: Use tm struct
-    MANGO_API bool DatePicker(const std::string& label, Mango::Date& v, bool clampToBorder = false, float itemSpacing = 130.0f);
+    IMGUI_API bool DatePicker(const std::string& label, tm& v, bool clampToBorder = false, float itemSpacing = 130.0f);
 }

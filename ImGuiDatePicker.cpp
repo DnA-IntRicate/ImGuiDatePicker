@@ -1,19 +1,21 @@
-#include <mgpch.hpp>
-#include <Mango/GUI/ImGuiDatePicker.hpp>
-#include <Mango/GUI/ImGuiExtensions.hpp> // TODO: Remove these includes
-#include <Mango/GUI/ImGuiWidgets.hpp>    // TODO: Remove these includes
+#include "ImGuiDatePicker.hpp"
 #include <imgui_internal.h>
-using namespace Mango;
+#include <cstdint>
+#include <chrono>
+#include <vector>
+#include <unordered_map>
 
+
+#define GET_DAY(timePoint) int(timePoint.tm_mday)
+#define GET_MONTH(timePoint) int(timePoint.tm_mon + 1)
+#define GET_YEAR(timePoint) int(timePoint.tm_year + 1900)
+
+#define SET_DAY(timePoint, day) timePoint.tm_mday = day
+#define SET_MONTH(timePoint, month) timePoint.tm_mon = month - 1
+#define SET_YEAR(timePoint, year) timePoint.tm_year = year - 1900
 
 namespace ImGui
 {
-    // This represents the year of the epoch for ActiveX Database Objects
-    constexpr int MIN_YEAR = 1970;  // TODO: Adjust this, maybe define this in the header file with a conditional macro
-
-    // The max year supported by the current implementation
-    constexpr int MAX_YEAR = 3000;
-
     static const std::vector<std::string> MONTHS =
     {
         "January",
@@ -42,7 +44,7 @@ namespace ImGui
     };
 
     // Implements Zeller's Congruence to determine the day of week [1, 7](Mon-Sun) from the given parameters
-    inline static uint32 DayOfWeek(uint32 dayOfMonth, uint32 month, uint32 year) noexcept
+    inline static uint32_t DayOfWeek(uint32_t dayOfMonth, uint32_t month, uint32_t year) noexcept
     {
         if ((month == 1) || (month == 2))
         {
@@ -50,17 +52,17 @@ namespace ImGui
             year -= 1;
         }
 
-        uint32 h = (dayOfMonth
-            + static_cast<uint32>(std::floor((13 * (month + 1)) / 5.0))
+        uint32_t h = (dayOfMonth
+            + static_cast<uint32_t>(std::floor((13 * (month + 1)) / 5.0))
             + year
-            + static_cast<uint32>(std::floor(year / 4.0))
-            - static_cast<uint32>(std::floor(year / 100.0))
-            + static_cast<uint32>(std::floor(year / 400.0))) % 7;
+            + static_cast<uint32_t>(std::floor(year / 4.0))
+            - static_cast<uint32_t>(std::floor(year / 100.0))
+            + static_cast<uint32_t>(std::floor(year / 400.0))) % 7;
 
-        return static_cast<uint32>(std::floor(((h + 5) % 7) + 1));
+        return static_cast<uint32_t>(std::floor(((h + 5) % 7) + 1));
     }
 
-    constexpr static bool IsLeapYear(uint32 year) noexcept
+    constexpr static bool IsLeapYear(uint32_t year) noexcept
     {
         if ((year % 400) == 0)
             return true;
@@ -71,13 +73,13 @@ namespace ImGui
         return false;
     }
 
-    inline static uint32 NumDaysInMonth(uint32 month, uint32 year)
+    inline static uint32_t NumDaysInMonth(uint32_t month, uint32_t year)
     {
         if (month == 2)
             return IsLeapYear(year) ? 29 : 28;
 
         // Month index paired to the number of days in that month excluding February
-        static const std::unordered_map<uint32, uint32> monthDayMap =
+        static const std::unordered_map<uint32_t, uint32_t> monthDayMap =
         {
             { 1,  31 },
             { 3,  31 },
@@ -96,24 +98,24 @@ namespace ImGui
     }
 
     // Returns the number of calendar weeks spanned by month in the specified year
-    inline static uint32 NumWeeksInMonth(uint32 month, uint32 year)
+    inline static uint32_t NumWeeksInMonth(uint32_t month, uint32_t year)
     {
-        uint32 days = NumDaysInMonth(month, year);
-        uint32 firstDay = DayOfWeek(1, month, year);
+        uint32_t days = NumDaysInMonth(month, year);
+        uint32_t firstDay = DayOfWeek(1, month, year);
 
-        return static_cast<uint32>(std::ceil((days + firstDay - 1) / 7.0));
+        return static_cast<uint32_t>(std::ceil((days + firstDay - 1) / 7.0));
     }
 
     // Returns a vector containing dates as they would appear on the calendar for a given week. Populates 0 if there is no day.
-    inline static std::vector<uint32> CalendarWeek(uint32 week, uint32 startDay, uint32 daysInMonth)
+    inline static std::vector<uint32_t> CalendarWeek(uint32_t week, uint32_t startDay, uint32_t daysInMonth)
     {
-        std::vector<uint32> res(7, 0);
+        std::vector<uint32_t> res(7, 0);
         int startOfWeek = 7 * (week - 1) + 2 - startDay;
 
         if (startOfWeek >= 1)
-            res[0] = (uint32)startOfWeek;
+            res[0] = (uint32_t)startOfWeek;
 
-        for (uint32 i = 1; i < 7; ++i)
+        for (uint32_t i = 1; i < 7; ++i)
         {
             int day = startOfWeek + i;
             if ((day >= 1) && (day <= (int)daysInMonth))
@@ -123,44 +125,63 @@ namespace ImGui
         return res;
     }
 
-    inline static Date PreviousMonth(const Date& date)
+    constexpr static tm EncodeTimePoint(int dayOfMonth, int month, int year) noexcept
     {
-        uint32 month = date.GetMonth();
-        uint32 year = date.GetYear();
+        tm res{ };
+        res.tm_mday = dayOfMonth;
+        res.tm_mon = month - 1;
+        res.tm_year = year - 1900;
+        res.tm_isdst = -1;
+
+        return res;
+    }
+
+    inline static tm Today() noexcept
+    {
+        std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+        std::time_t currentTime = std::chrono::system_clock::to_time_t(now);
+
+        return *std::gmtime(&currentTime);
+    }
+
+    inline static tm PreviousMonth(const tm& timePoint) noexcept
+    {
+        int month = GET_MONTH(timePoint);
+        int year = GET_YEAR(timePoint);
 
         if (month == 1)
         {
-            uint32 newDay = std::min(date.GetDayOfMonth(), NumDaysInMonth(12, --year));
-            return Date::EncodeDate(newDay, 12, year);
+            uint32_t newDay = std::min((uint32_t)GET_DAY(timePoint), NumDaysInMonth(12, --year));
+            return EncodeTimePoint(newDay, 12, year);
         }
 
-        uint32 newDay = std::min(date.GetDayOfMonth(), NumDaysInMonth(--month, year));
-        return Date::EncodeDate(newDay, month, year);
+        uint32_t newDay = std::min((uint32_t)GET_DAY(timePoint), NumDaysInMonth(--month, year));
+        return EncodeTimePoint(newDay, month, year);
     }
 
-    inline static Date NextMonth(const Date& date)
+    inline static tm NextMonth(const tm& timePoint) noexcept
     {
-        uint32 month = date.GetMonth();
-        uint32 year = date.GetYear();
+        int month = GET_MONTH(timePoint);
+        int year = GET_YEAR(timePoint);
 
         if (month == 12)
         {
-            uint32 newDay = std::min(date.GetDayOfMonth(), NumDaysInMonth(1, ++year));
-            return Date::EncodeDate(newDay, 1, year);
+            uint32_t newDay = std::min((uint32_t)GET_DAY(timePoint), NumDaysInMonth(1, ++year));
+            return EncodeTimePoint(newDay, 1, year);
         }
 
-        uint32 newDay = std::min(date.GetDayOfMonth(), NumDaysInMonth(++month, year));
-        return Date::EncodeDate(newDay, month, year);
+        uint32_t newDay = std::min((uint32_t)GET_DAY(timePoint), NumDaysInMonth(++month, year));
+        return EncodeTimePoint(newDay, month, year);
     }
 
-    inline static bool IsMinDate(const Date& date)
+    constexpr static bool IsMinDate(const tm& timePoint) noexcept
     {
-        return (date.GetMonth() == 1) && (date.GetYear() == MIN_YEAR);
+        return (GET_MONTH(timePoint) == 1) && (GET_YEAR(timePoint) == IMGUI_DATEPICKER_YEAR_MIN);
     }
 
-    inline static bool IsMaxDate(const Date& date)
+    constexpr static bool IsMaxDate(const tm& timePoint) noexcept
     {
-        return (date.GetMonth() == 12) && (date.GetYear() == MAX_YEAR);
+        return (GET_MONTH(timePoint) == 12) && (GET_YEAR(timePoint) == IMGUI_DATEPICKER_YEAR_MAX);
     }
 
     static bool ComboBox(const std::string& label, const std::vector<std::string>& items, int& v)
@@ -193,7 +214,7 @@ namespace ImGui
         return res;
     }
 
-    bool DatePicker(const std::string& label, Mango::Date& v, bool clampToBorder, float itemSpacing)
+    bool DatePicker(const std::string& label, tm& v, bool clampToBorder, float itemSpacing)
     {
         bool res = false;
 
@@ -305,12 +326,12 @@ namespace ImGui
                 TableNextRow();
                 TableSetColumnIndex(0);
 
-                uint32 month = monthIdx + 1;
-                uint32 firstDayOfMonth = DayOfWeek(1, month, (uint32)year);
-                uint32 numDaysInMonth = NumDaysInMonth(month, (uint32)year);
-                uint32 numWeeksInMonth = NumWeeksInMonth(month, (uint32)year);
+                uint32_t month = monthIdx + 1;
+                uint32_t firstDayOfMonth = DayOfWeek(1, month, (uint32_t)year);
+                uint32_t numDaysInMonth = NumDaysInMonth(month, (uint32_t)year);
+                uint32_t numWeeksInMonth = NumWeeksInMonth(month, (uint32_t)year);
 
-                for (uint32 i = 1; i <= numWeeksInMonth; ++i)
+                for (uint32_t i = 1; i <= numWeeksInMonth; ++i)
                 {
                     for (const auto& day : CalendarWeek(i, firstDayOfMonth, numDaysInMonth))
                     {
@@ -327,7 +348,7 @@ namespace ImGui
 
                             if (Button(std::to_string(day).c_str(), ImVec2(GetContentRegionAvail().x, GetTextLineHeightWithSpacing() + 5.0f)))
                             {
-                                v = Date::EncodeDate(day, month, (uint32)year);
+                                v = Date::EncodeDate(day, month, (uint32_t)year);
                                 res = true;
                                 CloseCurrentPopup();
                             }
