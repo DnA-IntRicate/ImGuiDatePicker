@@ -44,7 +44,7 @@ namespace ImGui
     };
 
     // Implements Zeller's Congruence to determine the day of week [1, 7](Mon-Sun) from the given parameters
-    inline static uint32_t DayOfWeek(uint32_t dayOfMonth, uint32_t month, uint32_t year) noexcept
+    inline static int DayOfWeek(int dayOfMonth, int month, int year) noexcept
     {
         if ((month == 1) || (month == 2))
         {
@@ -52,17 +52,17 @@ namespace ImGui
             year -= 1;
         }
 
-        uint32_t h = (dayOfMonth
-            + static_cast<uint32_t>(std::floor((13 * (month + 1)) / 5.0))
+        int h = (dayOfMonth
+            + static_cast<int>(std::floor((13 * (month + 1)) / 5.0))
             + year
-            + static_cast<uint32_t>(std::floor(year / 4.0))
-            - static_cast<uint32_t>(std::floor(year / 100.0))
-            + static_cast<uint32_t>(std::floor(year / 400.0))) % 7;
+            + static_cast<int>(std::floor(year / 4.0))
+            - static_cast<int>(std::floor(year / 100.0))
+            + static_cast<int>(std::floor(year / 400.0))) % 7;
 
-        return static_cast<uint32_t>(std::floor(((h + 5) % 7) + 1));
+        return static_cast<int>(std::floor(((h + 5) % 7) + 1));
     }
 
-    constexpr static bool IsLeapYear(uint32_t year) noexcept
+    constexpr static bool IsLeapYear(int year) noexcept
     {
         if ((year % 400) == 0)
             return true;
@@ -73,13 +73,13 @@ namespace ImGui
         return false;
     }
 
-    inline static uint32_t NumDaysInMonth(uint32_t month, uint32_t year)
+    inline static int NumDaysInMonth(int month, int year) // TODO: Switch to int
     {
         if (month == 2)
             return IsLeapYear(year) ? 29 : 28;
 
         // Month index paired to the number of days in that month excluding February
-        static const std::unordered_map<uint32_t, uint32_t> monthDayMap =
+        static const std::unordered_map<int, int> monthDayMap =
         {
             { 1,  31 },
             { 3,  31 },
@@ -98,27 +98,27 @@ namespace ImGui
     }
 
     // Returns the number of calendar weeks spanned by month in the specified year
-    inline static uint32_t NumWeeksInMonth(uint32_t month, uint32_t year)
+    inline static int NumWeeksInMonth(int month, int year)
     {
-        uint32_t days = NumDaysInMonth(month, year);
-        uint32_t firstDay = DayOfWeek(1, month, year);
+        int days = NumDaysInMonth(month, year);
+        int firstDay = DayOfWeek(1, month, year);
 
-        return static_cast<uint32_t>(std::ceil((days + firstDay - 1) / 7.0));
+        return static_cast<int>(std::ceil((days + firstDay - 1) / 7.0));
     }
 
     // Returns a vector containing dates as they would appear on the calendar for a given week. Populates 0 if there is no day.
-    inline static std::vector<uint32_t> CalendarWeek(uint32_t week, uint32_t startDay, uint32_t daysInMonth)
+    inline static std::vector<int> CalendarWeek(int week, int startDay, int daysInMonth)
     {
-        std::vector<uint32_t> res(7, 0);
+        std::vector<int> res(7, 0);
         int startOfWeek = 7 * (week - 1) + 2 - startDay;
 
         if (startOfWeek >= 1)
-            res[0] = (uint32_t)startOfWeek;
+            res[0] = startOfWeek;
 
-        for (uint32_t i = 1; i < 7; ++i)
+        for (int i = 1; i < 7; ++i)
         {
             int day = startOfWeek + i;
-            if ((day >= 1) && (day <= (int)daysInMonth))
+            if ((day >= 1) && (day <= daysInMonth))
                 res[i] = day;
         }
 
@@ -128,12 +128,21 @@ namespace ImGui
     constexpr static tm EncodeTimePoint(int dayOfMonth, int month, int year) noexcept
     {
         tm res{ };
-        res.tm_mday = dayOfMonth;
-        res.tm_mon = month - 1;
-        res.tm_year = year - 1900;
         res.tm_isdst = -1;
+        SET_DAY(res, dayOfMonth);
+        SET_MONTH(res, month);
+        SET_YEAR(res, year);
 
         return res;
+    }
+
+    inline static std::string TimePointToLongString(const tm& timePoint) noexcept
+    {
+        std::string day = std::to_string(GET_DAY(timePoint));
+        std::string month = MONTHS[GET_MONTH(timePoint) - 1];
+        std::string year = std::to_string(GET_YEAR(timePoint));
+
+        return std::string(day + " " + month + " " + year);
     }
 
     inline static tm Today() noexcept
@@ -151,11 +160,11 @@ namespace ImGui
 
         if (month == 1)
         {
-            uint32_t newDay = std::min((uint32_t)GET_DAY(timePoint), NumDaysInMonth(12, --year));
+            int newDay = std::min(GET_DAY(timePoint), NumDaysInMonth(12, --year));
             return EncodeTimePoint(newDay, 12, year);
         }
 
-        uint32_t newDay = std::min((uint32_t)GET_DAY(timePoint), NumDaysInMonth(--month, year));
+        int newDay = std::min(GET_DAY(timePoint), NumDaysInMonth(--month, year));
         return EncodeTimePoint(newDay, month, year);
     }
 
@@ -166,11 +175,11 @@ namespace ImGui
 
         if (month == 12)
         {
-            uint32_t newDay = std::min((uint32_t)GET_DAY(timePoint), NumDaysInMonth(1, ++year));
+            int newDay = std::min(GET_DAY(timePoint), NumDaysInMonth(1, ++year));
             return EncodeTimePoint(newDay, 1, year);
         }
 
-        uint32_t newDay = std::min((uint32_t)GET_DAY(timePoint), NumDaysInMonth(++month, year));
+        int newDay = std::min(GET_DAY(timePoint), NumDaysInMonth(++month, year));
         return EncodeTimePoint(newDay, month, year);
     }
 
@@ -242,25 +251,25 @@ namespace ImGui
         const ImVec2 windowSize = ImVec2(274.5f, 301.5f);
         SetNextWindowSize(windowSize);
 
-        // TODO: Stop using fmtlib
-        if (BeginCombo(fmt::format("##{0}", myLabel).c_str(), v.ToLongString().c_str()))
+        if (BeginCombo(std::string("##" + myLabel).c_str(), TimePointToLongString(v).c_str()))
         {
-            int monthIdx = v.GetMonth() - 1;
-            int year = v.GetYear();
+            int monthIdx = GET_MONTH(v) - 1;    // TODO: This is dumb, add a new macro for getting an unmodified value.
+            int year = GET_YEAR(v);
 
             PushItemWidth((GetContentRegionAvail().x * 0.5f));
 
-            if (ComboBox(fmt::format("##CmbMonth_{0}", myLabel), MONTHS, monthIdx))
-                v.SetMonth(monthIdx + 1);
+            // TODO: Stop using fmt
+            if (ComboBox("##CmbMonth_" + myLabel, MONTHS, monthIdx))
+                SET_MONTH(v, monthIdx + 1);
 
             PopItemWidth();
             SameLine();
             PushItemWidth(GetContentRegionAvail().x);
 
-            if (InputInt(fmt::format("##IntYear_{0}", myLabel).c_str(), &year))
+            if (InputInt(std::string("##IntYear_" + myLabel).c_str(), &year))
             {
-                year = std::min(std::max(MIN_YEAR, year), MAX_YEAR);
-                v.SetYear(year);
+                year = std::min(std::max(IMGUI_DATEPICKER_YEAR_MIN, year), IMGUI_DATEPICKER_YEAR_MAX);
+                SET_YEAR(v, year);
             }
 
             PopItemWidth();
@@ -279,7 +288,7 @@ namespace ImGui
             PushStyleColor(ImGuiCol_Border, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
             BeginDisabled(IsMinDate(v));
 
-            if (ArrowButtonEx(fmt::format("##ArrowLeft_{0}", myLabel).c_str(), ImGuiDir_Left, ImVec2(arrowSize, arrowSize)))
+            if (ArrowButtonEx(std::string("##ArrowLeft_" + myLabel).c_str(), ImGuiDir_Left, ImVec2(arrowSize, arrowSize)))
                 v = PreviousMonth(v);
 
             EndDisabled();
@@ -288,9 +297,9 @@ namespace ImGui
             PushStyleColor(ImGuiCol_Button, GetStyleColorVec4(ImGuiCol_Text));
             SetCursorPosY(GetCursorPosY() + 2.0f);
 
-            if (ButtonEx(fmt::format("##ArrowMid_{0}", myLabel).c_str(), ImVec2(bulletSize, bulletSize)))
+            if (ButtonEx(std::string("##ArrowMid_" + myLabel).c_str(), ImVec2(bulletSize, bulletSize)))
             {
-                v = Date::Today();
+                v = Today();
                 res = true;
                 CloseCurrentPopup();
             }
@@ -301,7 +310,7 @@ namespace ImGui
             PushStyleColor(ImGuiCol_Border, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
             BeginDisabled(IsMaxDate(v));
 
-            if (ArrowButtonEx(fmt::format("##ArrowRight_{0}", myLabel).c_str(), ImGuiDir_Right, ImVec2(arrowSize, arrowSize)))
+            if (ArrowButtonEx(std::string("##ArrowRight_" + myLabel).c_str(), ImGuiDir_Right, ImVec2(arrowSize, arrowSize)))
                 v = NextMonth(v);
 
             EndDisabled();
@@ -311,7 +320,7 @@ namespace ImGui
             constexpr ImGuiTableFlags TABLE_FLAGS = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_SizingFixedFit |
                 ImGuiTableFlags_NoHostExtendX | ImGuiTableFlags_NoHostExtendY;
 
-            if (BeginTable(fmt::format("##Table_{0}", myLabel).c_str(), 7, TABLE_FLAGS, GetContentRegionAvail()))
+            if (BeginTable(std::string("##Table_" + myLabel).c_str(), 7, TABLE_FLAGS, GetContentRegionAvail()))
             {
                 for (const auto& day : DAYS)
                     TableSetupColumn(day.c_str(), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoHeaderWidth, 30.0f);
@@ -326,12 +335,12 @@ namespace ImGui
                 TableNextRow();
                 TableSetColumnIndex(0);
 
-                uint32_t month = monthIdx + 1;
-                uint32_t firstDayOfMonth = DayOfWeek(1, month, (uint32_t)year);
-                uint32_t numDaysInMonth = NumDaysInMonth(month, (uint32_t)year);
-                uint32_t numWeeksInMonth = NumWeeksInMonth(month, (uint32_t)year);
+                int month = monthIdx + 1;
+                int firstDayOfMonth = DayOfWeek(1, month, year);
+                int numDaysInMonth = NumDaysInMonth(month, year);
+                int numWeeksInMonth = NumWeeksInMonth(month, year);
 
-                for (uint32_t i = 1; i <= numWeeksInMonth; ++i)
+                for (int i = 1; i <= numWeeksInMonth; ++i)
                 {
                     for (const auto& day : CalendarWeek(i, firstDayOfMonth, numDaysInMonth))
                     {
@@ -339,7 +348,7 @@ namespace ImGui
                         {
                             PushStyleVar(ImGuiStyleVar_FrameRounding, 20.0f);
 
-                            const bool selected = day == v.GetDayOfMonth();
+                            const bool selected = day == GET_DAY(v);
                             if (!selected)
                             {
                                 PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
@@ -348,7 +357,7 @@ namespace ImGui
 
                             if (Button(std::to_string(day).c_str(), ImVec2(GetContentRegionAvail().x, GetTextLineHeightWithSpacing() + 5.0f)))
                             {
-                                v = Date::EncodeDate(day, month, (uint32_t)year);
+                                v = EncodeTimePoint(day, month, year);
                                 res = true;
                                 CloseCurrentPopup();
                             }
