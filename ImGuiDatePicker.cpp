@@ -7,7 +7,8 @@
 
 
 #define GET_DAY(timePoint) int(timePoint.tm_mday)
-#define GET_MONTH(timePoint) int(timePoint.tm_mon + 1)
+#define GET_MONTH_UNSCALED(timePoint) timePoint.tm_mon
+#define GET_MONTH(timePoint) int(GET_MONTH_UNSCALED(timePoint) + 1)
 #define GET_YEAR(timePoint) int(timePoint.tm_year + 1900)
 
 #define SET_DAY(timePoint, day) timePoint.tm_mday = day
@@ -139,7 +140,7 @@ namespace ImGui
     inline static std::string TimePointToLongString(const tm& timePoint) noexcept
     {
         std::string day = std::to_string(GET_DAY(timePoint));
-        std::string month = MONTHS[GET_MONTH(timePoint) - 1];
+        std::string month = MONTHS[GET_MONTH_UNSCALED(timePoint)];
         std::string year = std::to_string(GET_YEAR(timePoint));
 
         return std::string(day + " " + month + " " + year);
@@ -245,7 +246,7 @@ namespace ImGui
 
         if (BeginCombo(std::string("##" + myLabel).c_str(), TimePointToLongString(v).c_str()))
         {
-            int monthIdx = GET_MONTH(v) - 1;    // TODO: This is dumb, add a new macro for getting an unmodified value.
+            int monthIdx = GET_MONTH_UNSCALED(v);
             int year = GET_YEAR(v);
 
             PushItemWidth((GetContentRegionAvail().x * 0.5f));
