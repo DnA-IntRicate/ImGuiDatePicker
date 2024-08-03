@@ -73,7 +73,7 @@ namespace ImGui
         return false;
     }
 
-    inline static int NumDaysInMonth(int month, int year) // TODO: Switch to int
+    inline static int NumDaysInMonth(int month, int year)
     {
         if (month == 2)
             return IsLeapYear(year) ? 29 : 28;
@@ -193,14 +193,11 @@ namespace ImGui
         return (GET_MONTH(timePoint) == 12) && (GET_YEAR(timePoint) == IMGUI_DATEPICKER_YEAR_MAX);
     }
 
-    static bool ComboBox(const std::string& label, const std::vector<std::string>& items, int& v)
+    static bool ComboBox(const std::string& label, const std::vector<std::string>& items, int& v, ImFont* altFont)
     {
         bool res = false;
 
-        ImGuiIO& io = ImGui::GetIO();   // TODO: a better way must be found to supply the bold font. Rename it alt font
-        auto boldFont = io.Fonts->Fonts[1];
-
-        ImGui::PushFont(boldFont);
+        ImGui::PushFont(altFont);
         if (ImGui::BeginCombo(label.c_str(), items[v].c_str()))
         {
             for (int i = 0; i < items.size(); ++i)
@@ -223,18 +220,13 @@ namespace ImGui
         return res;
     }
 
-    bool DatePicker(const std::string& label, tm& v, bool clampToBorder, float itemSpacing)
+    bool DatePickerEx(const std::string& label, tm& v, ImFont* altFont, bool clampToBorder, float itemSpacing)
     {
         bool res = false;
 
-    //    ImGuiContext& g = *GImGui;
         ImGuiWindow* window = GetCurrentWindow();
-
         if (window->SkipItems)
             return false;
-
-        ImGuiIO& io = GetIO();
-        auto boldFont = io.Fonts->Fonts[1]; // TODO: a better way must be found to supply the bold font. Rename it alt font
 
         bool hiddenLabel = label.substr(0, 2) == "##";
         std::string myLabel = (hiddenLabel) ? label.substr(2) : label;
@@ -258,7 +250,7 @@ namespace ImGui
 
             PushItemWidth((GetContentRegionAvail().x * 0.5f));
 
-            if (ComboBox("##CmbMonth_" + myLabel, MONTHS, monthIdx))
+            if (ComboBox("##CmbMonth_" + myLabel, MONTHS, monthIdx, altFont))
             {
                 SET_MONTH(v, monthIdx + 1);
                 res = true;
@@ -335,7 +327,7 @@ namespace ImGui
 
                 PushStyleColor(ImGuiCol_HeaderHovered, GetStyleColorVec4(ImGuiCol_TableHeaderBg));
                 PushStyleColor(ImGuiCol_HeaderActive, GetStyleColorVec4(ImGuiCol_TableHeaderBg));
-                PushFont(boldFont);
+                PushFont(altFont);
                 TableHeadersRow();
                 PopStyleColor();
                 PopFont();
@@ -388,5 +380,10 @@ namespace ImGui
         }
 
         return res;
+    }
+
+    bool DatePicker(const std::string& label, tm& v, bool clampToBorder, float itemSpacing)
+    {
+        return DatePickerEx(label, v, nullptr, clampToBorder, itemSpacing);
     }
 }
