@@ -258,9 +258,11 @@ namespace ImGui
 
             PushItemWidth((GetContentRegionAvail().x * 0.5f));
 
-            // TODO: Stop using fmt
             if (ComboBox("##CmbMonth_" + myLabel, MONTHS, monthIdx))
+            {
                 SET_MONTH(v, monthIdx + 1);
+                res = true;
+            }
 
             PopItemWidth();
             SameLine();
@@ -268,8 +270,8 @@ namespace ImGui
 
             if (InputInt(std::string("##IntYear_" + myLabel).c_str(), &year))
             {
-                year = std::min(std::max(IMGUI_DATEPICKER_YEAR_MIN, year), IMGUI_DATEPICKER_YEAR_MAX);
-                SET_YEAR(v, year);
+                SET_YEAR(v, std::min(std::max(IMGUI_DATEPICKER_YEAR_MIN, year), IMGUI_DATEPICKER_YEAR_MAX));
+                res = true;
             }
 
             PopItemWidth();
@@ -289,7 +291,10 @@ namespace ImGui
             BeginDisabled(IsMinDate(v));
 
             if (ArrowButtonEx(std::string("##ArrowLeft_" + myLabel).c_str(), ImGuiDir_Left, ImVec2(arrowSize, arrowSize)))
+            {
                 v = PreviousMonth(v);
+                res = true;
+            }
 
             EndDisabled();
             PopStyleColor(2);
@@ -311,7 +316,10 @@ namespace ImGui
             BeginDisabled(IsMaxDate(v));
 
             if (ArrowButtonEx(std::string("##ArrowRight_" + myLabel).c_str(), ImGuiDir_Right, ImVec2(arrowSize, arrowSize)))
+            {
                 v = NextMonth(v);
+                res = true;
+            }
 
             EndDisabled();
             PopStyleColor(2);
