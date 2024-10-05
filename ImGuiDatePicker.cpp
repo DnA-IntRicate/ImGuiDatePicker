@@ -330,7 +330,7 @@ namespace ImGui
                 PushStyleColor(ImGuiCol_HeaderActive, GetStyleColorVec4(ImGuiCol_TableHeaderBg));
                 PushFont(altFont);
                 TableHeadersRow();
-                PopStyleColor();
+                PopStyleColor(2);
                 PopFont();
 
                 TableNextRow();
