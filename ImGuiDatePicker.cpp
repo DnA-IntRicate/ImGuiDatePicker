@@ -151,7 +151,10 @@ namespace ImGui
         std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
         std::time_t currentTime = std::chrono::system_clock::to_time_t(now);
 
-        return *std::gmtime(&currentTime);
+        tm res;
+        gmtime_s(&res, &currentTime);
+
+        return res;
     }
 
     inline static tm PreviousMonth(const tm& timePoint) noexcept
