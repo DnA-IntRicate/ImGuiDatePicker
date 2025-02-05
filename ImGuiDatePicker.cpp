@@ -237,7 +237,7 @@ namespace ImGui
 
         if (!hiddenLabel)
         {
-            Text(label.c_str());
+            Text("%s", label.c_str());
             SameLine((itemSpacing == 0.0f) ? 0.0f : GetCursorPos().x + itemSpacing);
         }
 
